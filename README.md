@@ -5,10 +5,26 @@ A lot of new programming students start with c++ and/or object oriented programm
 
 This repo is still in active development as it is lacking some basic features, but it is functional and al contributions are welcome if they follow the same newbie aproach.
 
-
 ## How to use
 ### Windows and Visual studio
 In your project, open nugget package manger and install SDL2 and SDL_image. 
 Include this hpp in your files
 On top of your .cpp file, add: #include "EasySDL2.hpp"
 
+
+## Basics
+```
+#include "EasySDL2.hpp"
+using namespace std;
+
+int main(int argc, char* argv[]) {
+
+	EasySDL2 sdl(500, 500);                 //initialization
+	Texture t = sdl.loadTexture("h.jpg");   //load texture
+	sdl.drawTexture(0, 0, 500, 500, t); 
+	sdl.drawFrame();                        //show next frame
+	sdl.waitUntil("Q");                     //show same frame until Q is pressed
+	return 0;
+
+}
+```
