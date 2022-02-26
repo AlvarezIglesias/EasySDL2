@@ -94,8 +94,8 @@ public:
 	bool mouseButton(int buttonIndex);
 	bool mouseButtonUp(int buttonIndex);
 
-	void showUntil(std::string key);
-	void showUntil(int key);
+	void waitUntil(std::string key);
+	void waitUntil(int key);
 
 	void drawFrame();
 
@@ -310,22 +310,20 @@ bool EasySDL2::mouseButtonUp(int buttonIndex) {
 	return (!EasySDL2::mouseButtons[buttonIndex]) && EasySDL2::lastMouseButtons[buttonIndex];
 }
 
-void EasySDL2::showUntil(std::string keyName)
+void EasySDL2::waitUntil(std::string keyName)
 {
 	while (!checkKeyDown(keyName)) {
 		updateKeyMaps();
 		detect();
-		SDL_RenderPresent(renderer);
 		SDL_Delay(1);
 	}
 }
 
-void EasySDL2::showUntil(int mouseIndex)
+void EasySDL2::waitUntil(int mouseIndex)
 {
 	while (!mouseButtonDown(mouseIndex)) {
 		updateKeyMaps();
 		detect();
-		SDL_RenderPresent(renderer);
 		SDL_Delay(1);
 	}
 }

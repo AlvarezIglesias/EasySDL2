@@ -79,9 +79,8 @@ int main(int argc, char* argv[]) {
 			}
 		}
 
-
 		sdl.drawFrame();
-		sdl.showUntil("Q");
+		sdl.waitUntil("Q");
 	}
 
 	return 0;
