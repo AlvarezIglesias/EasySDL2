@@ -313,8 +313,8 @@ bool EasySDL2::mouseButtonUp(int buttonIndex) {
 void EasySDL2::showUntil(std::string keyName)
 {
 	while (!checkKeyDown(keyName)) {
+		updateKeyMaps();
 		detect();
-		SDL_RenderPresent(renderer);
 		SDL_Delay(1);
 	}
 }
@@ -322,8 +322,8 @@ void EasySDL2::showUntil(std::string keyName)
 void EasySDL2::showUntil(int mouseIndex)
 {
 	while (!mouseButtonDown(mouseIndex)) {
+		updateKeyMaps();
 		detect();
-		SDL_RenderPresent(renderer);
 		SDL_Delay(1);
 	}
 }
