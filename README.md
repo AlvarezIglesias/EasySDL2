@@ -5,6 +5,8 @@ A lot of new programming students start with c++ and/or object oriented programm
 
 This repo is still in active development as it is lacking some basic features, but it is functional and al contributions are welcome if they follow the same newbie aproach.
 
+Some components, such as textures, are managed through smart pointers, so c++11 is required.
+
 ## How to use
 ### Windows and Visual studio
 In your project, open nugget package manger and install SDL2 and SDL_image. 
