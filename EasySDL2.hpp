@@ -6,7 +6,7 @@
 #include "SDL_image.h"
 #include <iostream>
 #include <unordered_map>
-#include <iostream>
+#include <memory>
 
 struct Color
 {
@@ -18,15 +18,43 @@ struct Point
 	int x, y;
 };
 
-struct Texture
+struct _Texture
 {
 	SDL_Texture* texture;
+
+	_Texture(SDL_Texture* t) : texture(t) {}
+	~_Texture() {
+		SDL_DestroyTexture(texture);
+	}
+
+};
+
+class Texture
+{
+	std::shared_ptr<_Texture> sharedTexture;
+	Texture(SDL_Texture* otherT, bool otherFlipX, bool otherFlipY){
+		sharedTexture = std::make_shared<_Texture>(otherT);
+		flipX = otherFlipX;
+		flipY = otherFlipY;
+	}
+
+	SDL_Texture* getSharedTexture() { return sharedTexture.get()->texture; }
+
+public:	
+	Texture(const Texture& otherT) {
+		sharedTexture = otherT.sharedTexture;
+		flipX = otherT.flipX;
+		flipY = otherT.flipY;
+	}
+	~Texture() {}
+	Texture operator=(const Texture& other) { return Texture(other); }
+	
 	bool flipX;
 	bool flipY;
-
-private:
-	//~Texture() { SDL_DestroyTexture(texture); }; //might cause confusion
+	
+	friend class EasySDL2;
 };
+
 
 class EasySDL2
 {
@@ -79,10 +107,10 @@ public:
 	void drawCircle(int x, int y, int radius, Color color);
 	void drawCircleFilled(int x, int y, int radius, Color color);
 
-	void drawTexture(int x, int y, int width, int height, Texture texture);
-	void drawTexture(int x, int y, int width, int height, int angle, Texture texture);
-	void drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, Texture texture);
-	void drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, float angle, Texture texture);
+	void drawTexture(int x, int y, int width, int height, Texture& texture);
+	void drawTexture(int x, int y, int width, int height, int angle, Texture& texture);
+	void drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, Texture& texture);
+	void drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, float angle, Texture& texture);
 
 	Texture loadTexture(std::string path);
 
@@ -221,23 +249,28 @@ void EasySDL2::drawCircleFilled(int x, int y, int radius, Color color)
 	_drawCircleFilled(renderer, x, y, radius);
 }
 
-void EasySDL2::drawTexture(int x, int y, int width, int height, Texture texture)
+void EasySDL2::drawTexture(int x, int y, int width, int height, Texture& texture)
 {
 	drawTexture(x, y, width, height, .0f, .0f, texture);
 }
 
-void EasySDL2::drawTexture(int x, int y, int width, int height, int angle, Texture texture)
+void EasySDL2::drawTexture(int x, int y, int width, int height, int angle, Texture& texture)
 {
 	drawTexture(x, y, width, height, 0, 0, angle, texture);
 }
 
-void EasySDL2::drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, Texture texture)
+void EasySDL2::drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, Texture& texture)
 {
 	drawTexture(x, y, width, height, xPivot, yPivot, 0, texture);
 }
 
-void EasySDL2::drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, float angle, Texture texture)
+void EasySDL2::drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, float angle, Texture& texture)
 {
+	/*if (!texture.texture.use_count() == 0) {
+		std::cout << "The texture you just tried to draw has already been unloaded." << std::endl;
+		return;
+	}*/
+
 	SDL_Rect dest = { x,y,width,height };
 	SDL_Point pivot = { xPivot, yPivot };
 	SDL_RendererFlip flip = static_cast<SDL_RendererFlip>((
@@ -245,7 +278,7 @@ void EasySDL2::drawTexture(int x, int y, int width, int height, int xPivot, int 
 		(texture.flipY ? SDL_FLIP_VERTICAL : SDL_FLIP_NONE
 			));
 
-	SDL_RenderCopyEx(renderer, texture.texture, NULL, &dest, angle, &pivot, flip);
+	SDL_RenderCopyEx(renderer, texture.getSharedTexture(), NULL, &dest, angle, &pivot, flip);
 }
 
 Texture EasySDL2::loadTexture(std::string path)
@@ -256,11 +289,11 @@ Texture EasySDL2::loadTexture(std::string path)
 	optimizedImgSurface = SDL_ConvertSurface(imgSurface, surface->format, 0);
 	SDL_FreeSurface(imgSurface);
 
-	if (optimizedImgSurface == NULL) std::cout << "no se ha encontrado el archivo" << std::endl;
+	if (optimizedImgSurface == NULL) std::cout << "File not found" << std::endl;
 
-	SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, optimizedImgSurface);
-
-	return { texture };
+	Texture texture(SDL_CreateTextureFromSurface(renderer, optimizedImgSurface), false, false);
+	SDL_FreeSurface(optimizedImgSurface);
+	return texture;
 }
 
 void EasySDL2::drawFrame()
