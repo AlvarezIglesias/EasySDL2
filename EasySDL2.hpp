@@ -65,6 +65,7 @@ private:
 	SDL_Renderer* renderer;
 
 
+
 	void init();
 	void init(int width, int height);
 	void init(int width, int height, std::string name);
@@ -111,6 +112,9 @@ public:
 	void drawTexture(int x, int y, int width, int height, int angle, Texture& texture);
 	void drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, Texture& texture);
 	void drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, float angle, Texture& texture);
+
+	void drawFilledPolygon(const Sint16* vx, const Sint16* vy, int n, Color c);
+	void drawBezierCurve(int x[], int y[], const int width);
 
 	Texture loadTexture(std::string path);
 
@@ -172,7 +176,186 @@ int EasySDL2::screenHeight;
 bool EasySDL2::exit = false;
 
 
+int _polygonComparer(const void* a, const void* b)
+{
+	return (*(const int*)a) - (*(const int*)b);
+}
 
+//modified from SDL2_gfx https://www.ferzkopp.net/Software/SDL2_gfx/Docs/html/index.html
+void EasySDL2::drawFilledPolygon(const Sint16* vx, const Sint16* vy, int n, Color color)
+{
+	int result;
+	int i;
+	int y, xa, xb;
+	int miny, maxy;
+	int x1, y1;
+	int x2, y2;
+	int ind1, ind2;
+	int ints;
+	int* gfxPrimitivesPolyInts = NULL;
+	int* gfxPrimitivesPolyIntsNew = NULL;
+	int gfxPrimitivesPolyAllocated = 0;
+
+	/*
+	* Vertex array NULL check
+	*/
+	if (vx == NULL) {
+		return;
+	}
+	if (vy == NULL) {
+		return;
+	}
+
+	/*
+	* Sanity check number of edges
+	*/
+	if (n < 3) {
+		return;
+	}
+
+	gfxPrimitivesPolyInts = (int*)malloc(sizeof(int) * n);
+
+	/*
+	* Check temp array
+	*/
+	if (gfxPrimitivesPolyInts == NULL) {
+		return;
+	}
+
+	/*
+	* Determine Y maxima
+	*/
+	miny = vy[0];
+	maxy = vy[0];
+	for (i = 1; (i < n); i++) {
+		if (vy[i] < miny) {
+			miny = vy[i];
+		}
+		else if (vy[i] > maxy) {
+			maxy = vy[i];
+		}
+	}
+
+	/*
+	* Draw, scanning y
+	*/
+	result = 0;
+	for (y = miny; (y <= maxy); y++) {
+		ints = 0;
+		for (i = 0; (i < n); i++) {
+			if (!i) {
+				ind1 = n - 1;
+				ind2 = 0;
+			}
+			else {
+				ind1 = i - 1;
+				ind2 = i;
+			}
+			y1 = vy[ind1];
+			y2 = vy[ind2];
+			if (y1 < y2) {
+				x1 = vx[ind1];
+				x2 = vx[ind2];
+			}
+			else if (y1 > y2) {
+				y2 = vy[ind1];
+				y1 = vy[ind2];
+				x2 = vx[ind1];
+				x1 = vx[ind2];
+			}
+			else {
+				continue;
+			}
+			if (((y >= y1) && (y < y2)) || ((y == maxy) && (y > y1) && (y <= y2))) {
+				gfxPrimitivesPolyInts[ints++] = ((65536 * (y - y1)) / (y2 - y1)) * (x2 - x1) + (65536 * x1);
+			}
+		}
+
+		qsort(gfxPrimitivesPolyInts, ints, sizeof(int), _polygonComparer);
+
+		/*
+		* Set color
+		*/
+		
+		SDL_SetRenderDrawBlendMode(renderer, (color.a == 255) ? SDL_BLENDMODE_NONE : SDL_BLENDMODE_BLEND);
+		SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+
+		for (i = 0; (i < ints); i += 2) {
+			xa = gfxPrimitivesPolyInts[i] + 1;
+			xa = (xa >> 16) + ((xa & 32768) >> 15);
+			xb = gfxPrimitivesPolyInts[i + 1] - 1;
+			xb = (xb >> 16) + ((xb & 32768) >> 15);
+			drawLine(xa, y, xb, y, color);
+		}
+	}
+	free(gfxPrimitivesPolyInts);
+}
+
+
+void EasySDL2::drawBezierCurve(int x[], int y[], int width)
+{
+	double xu = 0.0, yu = 0.0, u = 0.0;
+	int i = 0;
+	double step = 0.001;
+
+	//last normals
+	double lnx1, lnx2, lny1, lny2;
+
+	for (u = 0.0; u <= 1.0; u += step)
+	{
+		xu = pow(1 - u, 3) * x[0] + 3 * u * pow(1 - u, 2) * x[1] + 3 * pow(u, 2) * (1 - u) * x[2]
+			+ pow(u, 3) * x[3];
+		yu = pow(1 - u, 3) * y[0] + 3 * u * pow(1 - u, 2) * y[1] + 3 * pow(u, 2) * (1 - u) * y[2]
+			+ pow(u, 3) * y[3];
+		//SDL_RenderDrawPoint(renderer, (int)xu, (int)yu);
+
+		double dx = 3 * pow(1 - u, 2) * (x[1] - x[0]) + 6 * (1 - u) * u * (x[2] - x[1]) + 3 * u * u * (x[3] - x[2]);
+		double dy = 3 * pow(1 - u, 2) * (y[1] - y[0]) + 6 * (1 - u) * u * (y[2] - y[1]) + 3 * u * u * (y[3] - y[2]);
+
+		//normalize and rotate 90 degrees
+		double m = sqrt(dx * dx + dy * dy);
+		double dt = dx;
+		dx = -dy / m;
+		dy = dt / m;
+
+		double nx1 = xu + dx * double(width);
+		double nx2 = xu - dx * double(width);
+		double ny1 = yu + dy * double(width);
+		double ny2 = yu - dy * double(width);
+
+
+		if (u != 0.0) {
+			Sint16 xs[] = { lnx1 , lnx2, nx2, nx1 };
+			Sint16 ys[] = { lny1 , lny2, ny2, ny1 };
+			drawFilledPolygon(xs, ys, 4, { 199,35,2,255 });
+		}
+
+		lnx1 = nx1;
+		lnx2 = nx2;
+		lny1 = ny1;
+		lny2 = ny2;
+
+		//drawLine(xu, yu, xu + dx * double(width), yu + dy * double(width), { 199,35,2,255 });
+		//drawLine(xu, yu, xu - dx * double(width), yu - dy * double(width), { 199,35,2,255 });
+
+		
+	}
+	drawCircleFilled(xu, yu, width-1, { 199,35,2,255 });
+}
+/*
+void EasySDL2::bezierCurve(int x[], int y[],const int width)
+{
+	double xu = 0.0, yu = 0.0, u = 0.0;
+	int i = 0;
+	for (u = 0.0; u <= 1.0; u += 0.0001)
+	{
+		xu = pow(1 - u, 3) * x[0] + 3 * u * pow(1 - u, 2) * x[1] + 3 * pow(u, 2) * (1 - u) * x[2]
+			+ pow(u, 3) * x[3];
+		yu = pow(1 - u, 3) * y[0] + 3 * u * pow(1 - u, 2) * y[1] + 3 * pow(u, 2) * (1 - u) * y[2]
+			+ pow(u, 3) * y[3];
+		drawCircleFilled((int)xu, (int)yu, width, BLACK);
+	}
+}*/
 
 void EasySDL2::init()
 {
@@ -309,7 +492,7 @@ void EasySDL2::drawFrame()
 	time = SDL_GetPerformanceCounter() / 1000.f;
 	deltaTime = (time - lastTime) / 1000.f;
 
-	SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+	SDL_SetRenderDrawColor(renderer, 21, 4, 66, 255);
 	SDL_RenderClear(renderer);
 }
 
