@@ -74,6 +74,8 @@ private:
 	void updateKeyMaps();
 	void _drawCircle(SDL_Renderer* renderer, int centreX, int centreY, int radius);
 	void _drawCircleFilled(SDL_Renderer* renderer, int centreX, int centreY, int radius);
+	//int _aalineRGBA(int x1, int y1, int x2, int y2, Color color, int draw_endpoint);
+	//void pixelRGBAWeight(SDL_Renderer* renderer, Sint16 x, Sint16 y, Color color, int weight);
 
 
 	static std::unordered_map<std::string, bool> KEYS;
@@ -114,7 +116,11 @@ public:
 	void drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, float angle, Texture& texture);
 
 	void drawFilledPolygon(const int* vx, const int* vy, int n, Color c);
-	void drawBezierCurve(int x[], int y[], const int width);
+
+	void drawQuadraticBezierCurve(int xs[4], int ys[4], const int width, Color color);
+	void drawQuadraticBezierCurve(int xs[4], int ys[4], const int width, Color color, bool rounded);
+	void drawQuadraticBezierCurve(Point coords[4], const int width, Color color);
+	void drawQuadraticBezierCurve(Point coords[4], const int width, Color color, bool rounded);
 
 	Texture loadTexture(std::string path);
 
@@ -290,12 +296,72 @@ void EasySDL2::drawFilledPolygon(const int* vx, const int* vy, int n, Color colo
 			drawLine(xa, y, xb, y, color);
 		}
 	}
-	//std::cout << total << std::endl;
 	free(gfxPrimitivesPolyInts);
 }
+void EasySDL2::drawQuadraticBezierCurve(Point coords[4], const int width, Color color) {
+	int xs[4] = { coords[0].x, coords[1].x , coords[2].x , coords[3].x };
+	int ys[4] = { coords[0].y, coords[1].y , coords[2].y , coords[3].y };
+	drawQuadraticBezierCurve(xs, ys, width, color, false);
+}
 
+void EasySDL2::drawQuadraticBezierCurve(Point coords[4], const int width, Color color, bool rounded) {
+	int xs[4] = { coords[0].x, coords[1].x , coords[2].x , coords[3].x };
+	int ys[4] = { coords[0].y, coords[1].y , coords[2].y , coords[3].y };
+	drawQuadraticBezierCurve(xs, ys, width, color, rounded);
+}
+void EasySDL2::drawQuadraticBezierCurve(int xs[4], int ys[4], int width, Color color) {
+	drawQuadraticBezierCurve(xs, ys, width, color, false);
+}
 
-/*void EasySDL2::drawBezierCurve(int x[], int y[], int width)
+//A lot faster than the other option, but doesnt draw the intersection. Also doesnt draw one segment at the end of the curve
+void EasySDL2::drawQuadraticBezierCurve(int xs[4], int ys[4], int width, Color color, bool round)
+{
+	double xu = 0.0, yu = 0.0, u = 0.0;
+	int i = 0;
+	double step = 0.01;
+
+	//past normals
+	int* lnx1 = (int*)malloc((1 / step) * sizeof(int) * 2);
+	int* lny1 = (int*)malloc((1 / step) * sizeof(int) * 2);
+
+	for (u = 0.0; u <= 1.0; u += step)
+	{
+		xu = pow(1 - u, 3) * xs[0] + 3 * u * pow(1 - u, 2) * xs[1] + 3 * pow(u, 2) * (1 - u) * xs[2]
+			+ pow(u, 3) * xs[3];
+		yu = pow(1 - u, 3) * ys[0] + 3 * u * pow(1 - u, 2) * ys[1] + 3 * pow(u, 2) * (1 - u) * ys[2]
+			+ pow(u, 3) * ys[3];
+
+		double dx = 3 * pow(1 - u, 2) * (xs[1] - xs[0]) + 6 * (1 - u) * u * (xs[2] - xs[1]) + 3 * u * u * (xs[3] - xs[2]);
+		double dy = 3 * pow(1 - u, 2) * (ys[1] - ys[0]) + 6 * (1 - u) * u * (ys[2] - ys[1]) + 3 * u * u * (ys[3] - ys[2]);
+
+		//normalize and rotate 90 degrees
+		double m = sqrt(dx * dx + dy * dy);
+		double dt = dx;
+		dx = -dy / m;
+		dy = dt / m;
+
+		//construct polygon
+		lnx1[i] = (xu + dx * double(width));
+		lnx1[(int)((1 / step) * 2 - i - 1)] = (xu - dx * double(width));
+		lny1[i] = (yu + dy * double(width));
+		lny1[(int)((1 / step) * 2 - i - 1)] = (yu - dy * double(width));
+
+		i++;
+	}
+
+	drawFilledPolygon(lnx1, lny1, (1 / step) * 2, color);
+
+	if (round) {
+		drawCircleFilled(xs[0], ys[0], width - 1, color);
+		drawCircleFilled(xs[3], ys[3], width - 1, color);
+	}
+	
+
+	free(lnx1);
+	free(lny1);
+}
+
+/*void EasySDL2::drawQuadraticBezierCurve(int xs[4], int ys[4], int width, Color color, bool round)
 {
 	double xu = 0.0, yu = 0.0, u = 0.0;
 	int i = 0;
@@ -306,14 +372,13 @@ void EasySDL2::drawFilledPolygon(const int* vx, const int* vy, int n, Color colo
 
 	for (u = 0.0; u <= 1.0; u += step)
 	{
-		xu = pow(1 - u, 3) * x[0] + 3 * u * pow(1 - u, 2) * x[1] + 3 * pow(u, 2) * (1 - u) * x[2]
-			+ pow(u, 3) * x[3];
-		yu = pow(1 - u, 3) * y[0] + 3 * u * pow(1 - u, 2) * y[1] + 3 * pow(u, 2) * (1 - u) * y[2]
-			+ pow(u, 3) * y[3];
-		//SDL_RenderDrawPoint(renderer, (int)xu, (int)yu);
+		xu = pow(1 - u, 3) * xs[0] + 3 * u * pow(1 - u, 2) * xs[1] + 3 * pow(u, 2) * (1 - u) * xs[2]
+			+ pow(u, 3) * xs[3];
+		yu = pow(1 - u, 3) * ys[0] + 3 * u * pow(1 - u, 2) * ys[1] + 3 * pow(u, 2) * (1 - u) * ys[2]
+			+ pow(u, 3) * ys[3];
 
-		double dx = 3 * pow(1 - u, 2) * (x[1] - x[0]) + 6 * (1 - u) * u * (x[2] - x[1]) + 3 * u * u * (x[3] - x[2]);
-		double dy = 3 * pow(1 - u, 2) * (y[1] - y[0]) + 6 * (1 - u) * u * (y[2] - y[1]) + 3 * u * u * (y[3] - y[2]);
+		double dx = 3 * pow(1 - u, 2) * (xs[1] - xs[0]) + 6 * (1 - u) * u * (xs[2] - xs[1]) + 3 * u * u * (xs[3] - xs[2]);
+		double dy = 3 * pow(1 - u, 2) * (ys[1] - ys[0]) + 6 * (1 - u) * u * (ys[2] - ys[1]) + 3 * u * u * (ys[3] - ys[2]);
 
 		//normalize and rotate 90 degrees
 		double m = sqrt(dx * dx + dy * dy);
@@ -328,9 +393,9 @@ void EasySDL2::drawFilledPolygon(const int* vx, const int* vy, int n, Color colo
 
 
 		if (u != 0.0) {
-			Sint16 xs[] = { lnx1 , lnx2, nx2, nx1 };
-			Sint16 ys[] = { lny1 , lny2, ny2, ny1 };
-			drawFilledPolygon(xs, ys, 4, { 199,35,2,255 });
+			int xs[] = { lnx1 , lnx2, nx2, nx1 };
+			int ys[] = { lny1 , lny2, ny2, ny1 };
+			drawFilledPolygon(xs, ys, 4, color);
 		}
 
 		lnx1 = nx1;
@@ -341,72 +406,9 @@ void EasySDL2::drawFilledPolygon(const int* vx, const int* vy, int n, Color colo
 		//drawLine(xu, yu, xu + dx * double(width), yu + dy * double(width), { 199,35,2,255 });
 		//drawLine(xu, yu, xu - dx * double(width), yu - dy * double(width), { 199,35,2,255 });
 
-		
 	}
-	drawCircleFilled(xu, yu, width-1, { 199,35,2,255 });
-}*/
-
-void EasySDL2::drawBezierCurve(int x[], int y[], int width)
-{
-	double xu = 0.0, yu = 0.0, u = 0.0;
-	int i = 0;
-	double step = 0.01;
-
-	//last normals
-	int* lnx1 = (int*)malloc((1 / step) * sizeof(int) * 2);
-	int* lny1 = (int*)malloc((1 / step) * sizeof(int) * 2);
-
-	for (u = 0.0; u <= 1.0; u += step)
-	{
-		xu = pow(1 - u, 3) * x[0] + 3 * u * pow(1 - u, 2) * x[1] + 3 * pow(u, 2) * (1 - u) * x[2]
-			+ pow(u, 3) * x[3];
-		yu = pow(1 - u, 3) * y[0] + 3 * u * pow(1 - u, 2) * y[1] + 3 * pow(u, 2) * (1 - u) * y[2]
-			+ pow(u, 3) * y[3];
-		//SDL_RenderDrawPoint(renderer, (int)xu, (int)yu);
-
-		double dx = 3 * pow(1 - u, 2) * (x[1] - x[0]) + 6 * (1 - u) * u * (x[2] - x[1]) + 3 * u * u * (x[3] - x[2]);
-		double dy = 3 * pow(1 - u, 2) * (y[1] - y[0]) + 6 * (1 - u) * u * (y[2] - y[1]) + 3 * u * u * (y[3] - y[2]);
-
-		//normalize and rotate 90 degrees
-		double m = sqrt(dx * dx + dy * dy);
-		double dt = dx;
-		dx = -dy / m;
-		dy = dt / m;
-
-		//inserting
-		lnx1[i] = (xu + dx * double(width));
-		lnx1[(int)((1 / step) * 2 - i - 1)] = (xu - dx * double(width));
-		lny1[i] = (yu + dy * double(width));
-		lny1[(int)((1 / step) * 2 - i - 1)] = (yu - dy * double(width));
-
-		
-		//drawLine(xu, yu, xu + dx * double(width), yu + dy * double(width), { 199,35,2,255 });
-		//drawLine(xu, yu, xu - dx * double(width), yu - dy * double(width), { 199,35,2,255 });
-
-		i++;
-	}
-
-	drawFilledPolygon(lnx1, lny1, (1 / step) * 2, { 199,35,2,255 });
-
-	drawCircleFilled(xu, yu, width - 1, { 199,35,2,255 });
-
-	free(lnx1);
-	free(lny1);
-}
-
-/*
-void EasySDL2::bezierCurve(int x[], int y[],const int width)
-{
-	double xu = 0.0, yu = 0.0, u = 0.0;
-	int i = 0;
-	for (u = 0.0; u <= 1.0; u += 0.0001)
-	{
-		xu = pow(1 - u, 3) * x[0] + 3 * u * pow(1 - u, 2) * x[1] + 3 * pow(u, 2) * (1 - u) * x[2]
-			+ pow(u, 3) * x[3];
-		yu = pow(1 - u, 3) * y[0] + 3 * u * pow(1 - u, 2) * y[1] + 3 * pow(u, 2) * (1 - u) * y[2]
-			+ pow(u, 3) * y[3];
-		drawCircleFilled((int)xu, (int)yu, width, BLACK);
-	}
+	drawCircleFilled(xs[0], ys[0], width - 1, color);
+	drawCircleFilled(xs[3], ys[3], width - 1, color);
 }*/
 
 void EasySDL2::init()
@@ -722,8 +724,6 @@ void EasySDL2::_drawCircleFilled(SDL_Renderer* renderer, int centreX, int centre
 		}
 	}
 }
-
-
 
 
 
