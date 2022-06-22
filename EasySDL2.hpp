@@ -113,7 +113,7 @@ public:
 	void drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, Texture& texture);
 	void drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, float angle, Texture& texture);
 
-	void drawFilledPolygon(const Sint16* vx, const Sint16* vy, int n, Color c);
+	void drawFilledPolygon(const int* vx, const int* vy, int n, Color c);
 	void drawBezierCurve(int x[], int y[], const int width);
 
 	Texture loadTexture(std::string path);
@@ -182,7 +182,7 @@ int _polygonComparer(const void* a, const void* b)
 }
 
 //modified from SDL2_gfx https://www.ferzkopp.net/Software/SDL2_gfx/Docs/html/index.html
-void EasySDL2::drawFilledPolygon(const Sint16* vx, const Sint16* vy, int n, Color color)
+void EasySDL2::drawFilledPolygon(const int* vx, const int* vy, int n, Color color)
 {
 	int result;
 	int i;
@@ -239,6 +239,7 @@ void EasySDL2::drawFilledPolygon(const Sint16* vx, const Sint16* vy, int n, Colo
 	/*
 	* Draw, scanning y
 	*/
+	int total = 0;
 	result = 0;
 	for (y = miny; (y <= maxy); y++) {
 		ints = 0;
@@ -272,6 +273,7 @@ void EasySDL2::drawFilledPolygon(const Sint16* vx, const Sint16* vy, int n, Colo
 		}
 
 		qsort(gfxPrimitivesPolyInts, ints, sizeof(int), _polygonComparer);
+		total += ints;
 
 		/*
 		* Set color
@@ -288,15 +290,16 @@ void EasySDL2::drawFilledPolygon(const Sint16* vx, const Sint16* vy, int n, Colo
 			drawLine(xa, y, xb, y, color);
 		}
 	}
+	//std::cout << total << std::endl;
 	free(gfxPrimitivesPolyInts);
 }
 
 
-void EasySDL2::drawBezierCurve(int x[], int y[], int width)
+/*void EasySDL2::drawBezierCurve(int x[], int y[], int width)
 {
 	double xu = 0.0, yu = 0.0, u = 0.0;
 	int i = 0;
-	double step = 0.001;
+	double step = 0.0001;
 
 	//last normals
 	double lnx1, lnx2, lny1, lny2;
@@ -341,7 +344,56 @@ void EasySDL2::drawBezierCurve(int x[], int y[], int width)
 		
 	}
 	drawCircleFilled(xu, yu, width-1, { 199,35,2,255 });
+}*/
+
+void EasySDL2::drawBezierCurve(int x[], int y[], int width)
+{
+	double xu = 0.0, yu = 0.0, u = 0.0;
+	int i = 0;
+	double step = 0.01;
+
+	//last normals
+	int* lnx1 = (int*)malloc((1 / step) * sizeof(int) * 2);
+	int* lny1 = (int*)malloc((1 / step) * sizeof(int) * 2);
+
+	for (u = 0.0; u <= 1.0; u += step)
+	{
+		xu = pow(1 - u, 3) * x[0] + 3 * u * pow(1 - u, 2) * x[1] + 3 * pow(u, 2) * (1 - u) * x[2]
+			+ pow(u, 3) * x[3];
+		yu = pow(1 - u, 3) * y[0] + 3 * u * pow(1 - u, 2) * y[1] + 3 * pow(u, 2) * (1 - u) * y[2]
+			+ pow(u, 3) * y[3];
+		//SDL_RenderDrawPoint(renderer, (int)xu, (int)yu);
+
+		double dx = 3 * pow(1 - u, 2) * (x[1] - x[0]) + 6 * (1 - u) * u * (x[2] - x[1]) + 3 * u * u * (x[3] - x[2]);
+		double dy = 3 * pow(1 - u, 2) * (y[1] - y[0]) + 6 * (1 - u) * u * (y[2] - y[1]) + 3 * u * u * (y[3] - y[2]);
+
+		//normalize and rotate 90 degrees
+		double m = sqrt(dx * dx + dy * dy);
+		double dt = dx;
+		dx = -dy / m;
+		dy = dt / m;
+
+		//inserting
+		lnx1[i] = (xu + dx * double(width));
+		lnx1[(int)((1 / step) * 2 - i - 1)] = (xu - dx * double(width));
+		lny1[i] = (yu + dy * double(width));
+		lny1[(int)((1 / step) * 2 - i - 1)] = (yu - dy * double(width));
+
+		
+		//drawLine(xu, yu, xu + dx * double(width), yu + dy * double(width), { 199,35,2,255 });
+		//drawLine(xu, yu, xu - dx * double(width), yu - dy * double(width), { 199,35,2,255 });
+
+		i++;
+	}
+
+	drawFilledPolygon(lnx1, lny1, (1 / step) * 2, { 199,35,2,255 });
+
+	drawCircleFilled(xu, yu, width - 1, { 199,35,2,255 });
+
+	free(lnx1);
+	free(lny1);
 }
+
 /*
 void EasySDL2::bezierCurve(int x[], int y[],const int width)
 {
