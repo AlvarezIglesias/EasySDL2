@@ -74,9 +74,6 @@ private:
 	void updateKeyMaps();
 	void _drawCircle(SDL_Renderer* renderer, int centreX, int centreY, int radius);
 	void _drawCircleFilled(SDL_Renderer* renderer, int centreX, int centreY, int radius);
-	//int _aalineRGBA(int x1, int y1, int x2, int y2, Color color, int draw_endpoint);
-	//void pixelRGBAWeight(SDL_Renderer* renderer, Sint16 x, Sint16 y, Color color, int weight);
-
 
 	static std::unordered_map<std::string, bool> KEYS;
 	static std::unordered_map<std::string, bool> lastKEYS;
@@ -117,10 +114,10 @@ public:
 
 	void drawFilledPolygon(const int* vx, const int* vy, int n, Color c);
 
-	void drawQuadraticBezierCurve(int xs[4], int ys[4], const int width, Color color);
-	void drawQuadraticBezierCurve(int xs[4], int ys[4], const int width, Color color, bool rounded);
-	void drawQuadraticBezierCurve(Point coords[4], const int width, Color color);
-	void drawQuadraticBezierCurve(Point coords[4], const int width, Color color, bool rounded);
+	void drawCubicBezierCurve(int xs[4], int ys[4], const int width, Color color);
+	void drawCubicBezierCurve(int xs[4], int ys[4], const int width, Color color, bool rounded);
+	void drawCubicBezierCurve(Point coords[4], const int width, Color color);
+	void drawCubicBezierCurve(Point coords[4], const int width, Color color, bool rounded);
 
 	Texture loadTexture(std::string path);
 
@@ -199,8 +196,7 @@ void EasySDL2::drawFilledPolygon(const int* vx, const int* vy, int n, Color colo
 	int ind1, ind2;
 	int ints;
 	int* gfxPrimitivesPolyInts = NULL;
-	int* gfxPrimitivesPolyIntsNew = NULL;
-	int gfxPrimitivesPolyAllocated = 0;
+
 
 	/*
 	* Vertex array NULL check
@@ -245,7 +241,6 @@ void EasySDL2::drawFilledPolygon(const int* vx, const int* vy, int n, Color colo
 	/*
 	* Draw, scanning y
 	*/
-	int total = 0;
 	result = 0;
 	for (y = miny; (y <= maxy); y++) {
 		ints = 0;
@@ -279,7 +274,6 @@ void EasySDL2::drawFilledPolygon(const int* vx, const int* vy, int n, Color colo
 		}
 
 		qsort(gfxPrimitivesPolyInts, ints, sizeof(int), _polygonComparer);
-		total += ints;
 
 		/*
 		* Set color
@@ -298,23 +292,23 @@ void EasySDL2::drawFilledPolygon(const int* vx, const int* vy, int n, Color colo
 	}
 	free(gfxPrimitivesPolyInts);
 }
-void EasySDL2::drawQuadraticBezierCurve(Point coords[4], const int width, Color color) {
+void EasySDL2::drawCubicBezierCurve(Point coords[4], const int width, Color color) {
 	int xs[4] = { coords[0].x, coords[1].x , coords[2].x , coords[3].x };
 	int ys[4] = { coords[0].y, coords[1].y , coords[2].y , coords[3].y };
-	drawQuadraticBezierCurve(xs, ys, width, color, false);
+	drawCubicBezierCurve(xs, ys, width, color, false);
 }
 
-void EasySDL2::drawQuadraticBezierCurve(Point coords[4], const int width, Color color, bool rounded) {
+void EasySDL2::drawCubicBezierCurve(Point coords[4], const int width, Color color, bool rounded) {
 	int xs[4] = { coords[0].x, coords[1].x , coords[2].x , coords[3].x };
 	int ys[4] = { coords[0].y, coords[1].y , coords[2].y , coords[3].y };
-	drawQuadraticBezierCurve(xs, ys, width, color, rounded);
+	drawCubicBezierCurve(xs, ys, width, color, rounded);
 }
-void EasySDL2::drawQuadraticBezierCurve(int xs[4], int ys[4], int width, Color color) {
-	drawQuadraticBezierCurve(xs, ys, width, color, false);
+void EasySDL2::drawCubicBezierCurve(int xs[4], int ys[4], int width, Color color) {
+	drawCubicBezierCurve(xs, ys, width, color, false);
 }
 
 //A lot faster than the other option, but doesnt draw the intersection. Also doesnt draw one segment at the end of the curve
-void EasySDL2::drawQuadraticBezierCurve(int xs[4], int ys[4], int width, Color color, bool round)
+void EasySDL2::drawCubicBezierCurve(int xs[4], int ys[4], int width, Color color, bool round)
 {
 	double xu = 0.0, yu = 0.0, u = 0.0;
 	int i = 0;
@@ -336,15 +330,22 @@ void EasySDL2::drawQuadraticBezierCurve(int xs[4], int ys[4], int width, Color c
 
 		//normalize and rotate 90 degrees
 		double m = sqrt(dx * dx + dy * dy);
-		double dt = dx;
-		dx = -dy / m;
-		dy = dt / m;
+
+		double nx = -dy / m;
+		double ny = dx / m;
+
+		double ddx = 6 * (1 - u) * (xs[2] - 2 * xs[1] + xs[0]) + 6 * u * (xs[3] - 2 * xs[2] + xs[1]);
+		double ddy = 6 * (1 - u) * (ys[2] - 2 * ys[1] + ys[0]) + 6 * u * (ys[3] - 2 * ys[2] + ys[1]);
+
+		double det = dx * ddy - dy * ddx;
+		double kappa = det / (m * m * m);
+		double radius = 1.f / kappa;
 
 		//construct polygon
-		lnx1[i] = (xu + dx * double(width));
-		lnx1[(int)((1 / step) * 2 - i - 1)] = (xu - dx * double(width));
-		lny1[i] = (yu + dy * double(width));
-		lny1[(int)((1 / step) * 2 - i - 1)] = (yu - dy * double(width));
+		lnx1[i] = (xu + nx * double(width));
+		lnx1[(int)((1 / step) * 2 - i - 1)] = (xu - nx * double(width));
+		lny1[i] = (yu + ny * double(width));
+		lny1[(int)((1 / step) * 2 - i - 1)] = (yu - ny * double(width));
 
 		i++;
 	}
