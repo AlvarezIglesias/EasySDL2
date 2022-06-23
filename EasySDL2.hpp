@@ -4,6 +4,8 @@
 
 #include "SDL.h"
 #include "SDL_image.h"
+#include "SDL_mixer.h"
+
 #include <iostream>
 #include <unordered_map>
 #include <memory>
@@ -16,6 +18,36 @@ struct Color
 struct Point
 {
 	int x, y;
+};
+
+struct _Sound
+{
+	Mix_Chunk* sound;
+
+	_Sound(Mix_Chunk* s) : sound(s) {}
+	~_Sound() {
+		Mix_FreeChunk(sound);
+	}
+
+};
+
+class Sound
+{
+	std::shared_ptr<_Sound> sharedSound;
+	Sound(Mix_Chunk* otherS) {
+		sharedSound = std::make_shared<_Sound>(otherS);
+	}
+
+	Mix_Chunk* getSharedSound() { return sharedSound.get()->sound; }
+
+public:
+	Sound(const Sound& otherS) {
+		sharedSound = otherS.sharedSound;
+	}
+	~Sound() {}
+	Sound operator=(const Sound& other) { return Sound(other); }
+
+	friend class EasySDL2;
 };
 
 struct _Texture
@@ -93,6 +125,9 @@ public:
 		SDL_DestroyWindow(window);
 		SDL_DestroyRenderer(renderer);
 		SDL_FreeSurface(surface);
+		Mix_Quit();
+		IMG_Quit();
+		SDL_Quit();
 	};
 
 	void drawLine(int x1, int y1, int x2, int y2);
@@ -113,6 +148,9 @@ public:
 	void drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, float angle, Texture& texture);
 
 	Texture loadTexture(std::string path);
+	Sound loadSound(std::string path);
+
+	void playSound(Sound& sound);
 
 	bool checkKeyDown(std::string keyName);
 	bool checkKey(std::string keyName);
@@ -198,8 +236,14 @@ void EasySDL2::init(int width, int height, std::string name)
 	SDL_RenderPresent(renderer);
 
 	surface = SDL_GetWindowSurface(window);
-
 	time = SDL_GetPerformanceCounter();
+
+	if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) < 0)
+	{
+		printf("SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError());
+	}
+
+	Mix_Music* m = Mix_LoadMUS("21_sound_effects_and_music/beat.wav");
 
 	drawFrame();
 
@@ -266,11 +310,6 @@ void EasySDL2::drawTexture(int x, int y, int width, int height, int xPivot, int 
 
 void EasySDL2::drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, float angle, Texture& texture)
 {
-	/*if (!texture.texture.use_count() == 0) {
-		std::cout << "The texture you just tried to draw has already been unloaded." << std::endl;
-		return;
-	}*/
-
 	SDL_Rect dest = { x,y,width,height };
 	SDL_Point pivot = { xPivot, yPivot };
 	SDL_RendererFlip flip = static_cast<SDL_RendererFlip>((
@@ -294,6 +333,21 @@ Texture EasySDL2::loadTexture(std::string path)
 	Texture texture(SDL_CreateTextureFromSurface(renderer, optimizedImgSurface), false, false);
 	SDL_FreeSurface(optimizedImgSurface);
 	return texture;
+}
+
+Sound EasySDL2::loadSound(std::string path)
+{
+	Mix_Chunk* loadedSound = Mix_LoadWAV(path.c_str());
+	if (loadedSound == NULL)
+	{
+		printf("Failed to load scratch sound effect! SDL_mixer Error: %s\n", Mix_GetError());
+	}
+	Sound sound(loadedSound);
+	return sound;
+}
+
+void EasySDL2::playSound(Sound& sound) {
+	Mix_PlayChannel(-1, sound.getSharedSound(), 0);
 }
 
 void EasySDL2::drawFrame()

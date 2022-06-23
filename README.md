@@ -9,7 +9,7 @@ Some components, such as textures, are managed through smart pointers, so c++11 
 
 ## How to use
 ### Windows and Visual studio
-In your project, open nugget package manger and install SDL2 and SDL_image. 
+In your project, open nugget package manger and install SDL2, SDL_image and SDL_mixer. 
 Include this hpp in your files
 On top of your .cpp file, add: #include "EasySDL2.hpp"
 
