@@ -20,59 +20,66 @@ struct Point
 	int x, y;
 };
 
-struct _Sound
+struct Music
 {
-	Mix_Chunk* sound;
-
-	_Sound(Mix_Chunk* s) : sound(s) {}
-	~_Sound() {
-		Mix_FreeChunk(sound);
+	Music(const Music& otherM) {
+		sharedMusic = otherM.sharedMusic;
 	}
+	~Music() {}
+	Music operator=(const Music& other) { return Music(other); }
+private:
 
+	struct _Music
+	{
+		Mix_Music* music;
+		_Music(Mix_Music* s) : music(s) {}
+		~_Music() {
+			Mix_FreeMusic(music);
+		}
+	};
+
+	std::shared_ptr<_Music> sharedMusic;
+	Music(Mix_Music* otherM) {
+		sharedMusic = std::make_shared<_Music>(otherM);
+	}
+	Mix_Music* getSharedSound() { return sharedMusic.get()->music; }
+
+	friend class EasySDL2;
 };
 
-class Sound
+
+struct Sound
 {
-	std::shared_ptr<_Sound> sharedSound;
-	Sound(Mix_Chunk* otherS) {
-		sharedSound = std::make_shared<_Sound>(otherS);
-	}
-
-	Mix_Chunk* getSharedSound() { return sharedSound.get()->sound; }
-
-public:
 	Sound(const Sound& otherS) {
 		sharedSound = otherS.sharedSound;
 	}
 	~Sound() {}
 	Sound operator=(const Sound& other) { return Sound(other); }
+private:
+
+	struct _Sound
+	{
+		Mix_Chunk* sound;
+		_Sound(Mix_Chunk* s) : sound(s) {}
+		~_Sound() {
+			Mix_FreeChunk(sound);
+		}
+	};
+
+	std::shared_ptr<_Sound> sharedSound;
+	Sound(Mix_Chunk* otherS) {
+		sharedSound = std::make_shared<_Sound>(otherS);
+	}
+	Mix_Chunk* getSharedSound() { return sharedSound.get()->sound; }
 
 	friend class EasySDL2;
 };
 
-struct _Texture
+struct Texture
 {
-	SDL_Texture* texture;
+	bool flipX;
+	bool flipY;
 
-	_Texture(SDL_Texture* t) : texture(t) {}
-	~_Texture() {
-		SDL_DestroyTexture(texture);
-	}
-
-};
-
-class Texture
-{
-	std::shared_ptr<_Texture> sharedTexture;
-	Texture(SDL_Texture* otherT, bool otherFlipX, bool otherFlipY){
-		sharedTexture = std::make_shared<_Texture>(otherT);
-		flipX = otherFlipX;
-		flipY = otherFlipY;
-	}
-
-	SDL_Texture* getSharedTexture() { return sharedTexture.get()->texture; }
-
-public:	
 	Texture(const Texture& otherT) {
 		sharedTexture = otherT.sharedTexture;
 		flipX = otherT.flipX;
@@ -80,9 +87,26 @@ public:
 	}
 	~Texture() {}
 	Texture operator=(const Texture& other) { return Texture(other); }
-	
-	bool flipX;
-	bool flipY;
+
+private:
+
+	struct _Texture
+	{
+		SDL_Texture* texture;
+		_Texture(SDL_Texture* t) : texture(t) {}
+		~_Texture() {
+			SDL_DestroyTexture(texture);
+		}
+	};
+
+	std::shared_ptr<_Texture> sharedTexture;
+	Texture(SDL_Texture* otherT, bool otherFlipX, bool otherFlipY) {
+		sharedTexture = std::make_shared<_Texture>(otherT);
+		flipX = otherFlipX;
+		flipY = otherFlipY;
+	}
+
+	SDL_Texture* getSharedTexture() { return sharedTexture.get()->texture; }
 	
 	friend class EasySDL2;
 };
@@ -151,6 +175,9 @@ public:
 	Sound loadSound(std::string path);
 
 	void playSound(Sound& sound);
+
+	Music loadMusic(std::string path);
+	void playMusic(Music& music);
 
 	bool checkKeyDown(std::string keyName);
 	bool checkKey(std::string keyName);
@@ -242,8 +269,7 @@ void EasySDL2::init(int width, int height, std::string name)
 	{
 		printf("SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError());
 	}
-
-	Mix_Music* m = Mix_LoadMUS("21_sound_effects_and_music/beat.wav");
+	//Mix_VolumeMusic(128);
 
 	drawFrame();
 
@@ -340,7 +366,7 @@ Sound EasySDL2::loadSound(std::string path)
 	Mix_Chunk* loadedSound = Mix_LoadWAV(path.c_str());
 	if (loadedSound == NULL)
 	{
-		printf("Failed to load scratch sound effect! SDL_mixer Error: %s\n", Mix_GetError());
+		printf("Failed to load sound! SDL_mixer Error: %s\n", Mix_GetError());
 	}
 	Sound sound(loadedSound);
 	return sound;
@@ -348,6 +374,21 @@ Sound EasySDL2::loadSound(std::string path)
 
 void EasySDL2::playSound(Sound& sound) {
 	Mix_PlayChannel(-1, sound.getSharedSound(), 0);
+}
+
+Music EasySDL2::loadMusic(std::string path)
+{
+	Mix_Music* loadedMusic = Mix_LoadMUS(path.c_str());
+	if (loadedMusic == NULL)
+	{
+		printf("Failed to load music! SDL_mixer Error: %s\n", Mix_GetError());
+	}
+	Music music(loadedMusic);
+	return music;
+}
+
+void EasySDL2::playMusic(Music& music) {
+	Mix_PlayMusic(music.getSharedSound(), -1);
 }
 
 void EasySDL2::drawFrame()
