@@ -5,6 +5,7 @@
 #include "SDL.h"
 #include "SDL_image.h"
 #include "SDL_mixer.h"
+#include "SDL_ttf.h"
 
 #include <iostream>
 #include <unordered_map>
@@ -18,6 +19,33 @@ struct Color
 struct Point
 {
 	int x, y;
+};
+
+struct Font
+{
+	Font(const Font& otherF) {
+		sharedFont = otherF.sharedFont;
+	}
+	~Font() {}
+	Font operator=(const Font& other) { return Font(other); }
+private:
+
+	struct _Font
+	{
+		TTF_Font* font;
+		_Font(TTF_Font* s) : font(s) {}
+		~_Font() {
+			TTF_CloseFont(font);
+		}
+	};
+
+	std::shared_ptr<_Font> sharedFont;
+	Font(TTF_Font* otherF) {
+		sharedFont = std::make_shared<_Font>(otherF);
+	}
+	TTF_Font* getSharedFont() { return sharedFont.get()->font; }
+
+	friend class EasySDL2;
 };
 
 struct Music
@@ -151,6 +179,7 @@ public:
 		SDL_FreeSurface(surface);
 		Mix_Quit();
 		IMG_Quit();
+		TTF_Quit();
 		SDL_Quit();
 	};
 
@@ -178,6 +207,9 @@ public:
 
 	Music loadMusic(std::string path);
 	void playMusic(Music& music);
+
+	Font loadFont(std::string path, int size);
+	void drawText(Font& font, std::string text, int x, int y);
 
 	bool checkKeyDown(std::string keyName);
 	bool checkKey(std::string keyName);
@@ -269,7 +301,9 @@ void EasySDL2::init(int width, int height, std::string name)
 	{
 		printf("SDL_mixer could not initialize! SDL_mixer Error: %s\n", Mix_GetError());
 	}
-	//Mix_VolumeMusic(128);
+	if (TTF_Init() == -1) {
+		printf("TTF_Init: %s\n", TTF_GetError());
+	}
 
 	drawFrame();
 
@@ -389,6 +423,32 @@ Music EasySDL2::loadMusic(std::string path)
 
 void EasySDL2::playMusic(Music& music) {
 	Mix_PlayMusic(music.getSharedSound(), -1);
+}
+
+Font EasySDL2::loadFont(std::string path, int size)
+{
+	TTF_Font* loadedFont = TTF_OpenFont(path.c_str(), size);
+	if (!loadedFont) {
+		printf("TTF_OpenFont: %s\n", TTF_GetError());
+	}
+	Font font(loadedFont);
+	return font;
+}
+
+void EasySDL2::drawText(Font& font, std::string text, int x, int y) {
+
+	SDL_Surface* text_surface;
+	if (!(text_surface = TTF_RenderUTF8_Solid(font.getSharedFont(), text.c_str(), {0,0,0,0}))) {
+		printf("TTF_RenderUTF8_Solid: %s\n", TTF_GetError());
+	}
+	else {
+		SDL_Rect pos = { x,y,text_surface->w,text_surface->h };
+		SDL_Texture* mTexture = SDL_CreateTextureFromSurface(renderer, text_surface);
+		SDL_RenderCopy(renderer, mTexture, NULL, &pos);
+		
+		SDL_FreeSurface(text_surface);
+		SDL_DestroyTexture(mTexture);
+	}
 }
 
 void EasySDL2::drawFrame()
