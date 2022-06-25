@@ -201,12 +201,21 @@ public:
 	void drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, float angle, Texture& texture);
 
 	Texture loadTexture(std::string path);
-	Sound loadSound(std::string path);
 
+	Sound loadSound(std::string path);
 	void playSound(Sound& sound);
+	void setSoundVolume(Sound& sound, int volume);
+	int getSoundVolume(Sound& sound);
 
 	Music loadMusic(std::string path);
 	void playMusic(Music& music);
+	void playMusic(Music& music, int startingPoint);
+	void playMusicFadeIn(Music& music, int fadeDuration);
+	void playMusicFadeIn(Music& music, int fadeDuration, int startingPoint);
+	void stopMusic();
+	void stopMusicFadeOut(int fadeDuration);
+	void setMusicVolume(int volume);
+	int getMusicVolume();
 
 	Font loadFont(std::string path, int size);
 	void drawText(Font& font, std::string text, int x, int y);
@@ -410,6 +419,14 @@ void EasySDL2::playSound(Sound& sound) {
 	Mix_PlayChannel(-1, sound.getSharedSound(), 0);
 }
 
+
+void EasySDL2::setSoundVolume(Sound& sound,int volume) {
+	Mix_VolumeChunk(sound.getSharedSound(), volume);
+}
+int EasySDL2::getSoundVolume(Sound& sound) {
+	return Mix_VolumeChunk(sound.getSharedSound(), -1);
+}
+
 Music EasySDL2::loadMusic(std::string path)
 {
 	Mix_Music* loadedMusic = Mix_LoadMUS(path.c_str());
@@ -422,7 +439,29 @@ Music EasySDL2::loadMusic(std::string path)
 }
 
 void EasySDL2::playMusic(Music& music) {
-	Mix_PlayMusic(music.getSharedSound(), -1);
+	playMusicFadeIn(music, 0, 0);
+}
+void EasySDL2::playMusic(Music& music, int startingPoint) {
+	playMusicFadeIn(music, 0, startingPoint);
+}
+void EasySDL2::playMusicFadeIn(Music& music, int fadeDuration) {
+	playMusicFadeIn(music, fadeDuration, 0);
+}
+void EasySDL2::playMusicFadeIn(Music& music, int fadeDuration, int startingPoint) {
+	Mix_FadeInMusicPos(music.getSharedSound(), 1, fadeDuration, startingPoint);
+}
+void EasySDL2::stopMusic() {
+	stopMusicFadeOut(0);
+}
+void EasySDL2::stopMusicFadeOut(int fadeDuration) {
+	Mix_FadeOutMusic(fadeDuration);
+}
+
+void EasySDL2::setMusicVolume(int volume) {
+	Mix_VolumeMusic(volume);
+}
+int EasySDL2::getMusicVolume() {
+	return Mix_VolumeMusic(-1);
 }
 
 Font EasySDL2::loadFont(std::string path, int size)
