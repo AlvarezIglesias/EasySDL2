@@ -187,18 +187,18 @@ public:
 	void drawLine(int x1, int y1, int x2, int y2, Color color);
 
 	void drawRect(int x, int y, int width, int height, Color color);
-	void drawRect(int x, int y, int width, int height, float xPivot, float yPivot, Color color);
+	void drawRect(int x, int y, int width, int height, int xPivot, int yPivot, Color color);
 
 	void drawRectFilled(int x, int y, int width, int height, Color color);
-	void drawRectFilled(int x, int y, int width, int height, float xPivot, float yPivot, Color color);
+	void drawRectFilled(int x, int y, int width, int height, int xPivot, int yPivot, Color color);
 
 	void drawCircle(int x, int y, int radius, Color color);
 	void drawCircleFilled(int x, int y, int radius, Color color);
 
-	void drawTexture(int x, int y, int width, int height, Texture& texture);
-	void drawTexture(int x, int y, int width, int height, int angle, Texture& texture);
-	void drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, Texture& texture);
-	void drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, float angle, Texture& texture);
+	void drawTexture(Texture& texture, int x, int y, int width, int height);
+	void drawTexture(Texture& texture, int x, int y, int width, int height, int angle);
+	void drawTexture(Texture& texture, int x, int y, int width, int height, int xPivot, int yPivot);
+	void drawTexture(Texture& texture, int x, int y, int width, int height, int xPivot, int yPivot, float angle);
 
 	Texture loadTexture(std::string path);
 
@@ -219,6 +219,8 @@ public:
 
 	Font loadFont(std::string path, int size);
 	void drawText(Font& font, std::string text, int x, int y);
+	void drawText(Font& font, std::string text, int x, int y, int angle);
+	void drawText(Font& font, std::string text, int x, int y, int xPivot, int yPivot, float angle);
 
 	bool checkKeyDown(std::string keyName);
 	bool checkKey(std::string keyName);
@@ -297,7 +299,7 @@ void EasySDL2::init(int width, int height, std::string name)
 		name.c_str(),
 		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 		width, height,
-		SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN | SDL_WINDOW_ALWAYS_ON_TOP
+		SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN 
 	);
 	renderer = SDL_CreateRenderer(window, -1, 0);
 	SDL_RenderClear(renderer);
@@ -331,7 +333,7 @@ void EasySDL2::drawRect(int x, int y, int width, int height, Color color)
 	drawRect(x, y, width, height, .0f, .0f, color);
 }
 
-void EasySDL2::drawRect(int x, int y, int width, int height, float xPivot, float yPivot, Color color)
+void EasySDL2::drawRect(int x, int y, int width, int height, int xPivot, int yPivot, Color color)
 {
 	SDL_Rect dest = { x - xPivot, y - yPivot,width ,height };
 	SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
@@ -343,7 +345,7 @@ void EasySDL2::drawRectFilled(int x, int y, int width, int height, Color color)
 	drawRectFilled(x, y, width, height, .0f, .0f, color);
 }
 
-void EasySDL2::drawRectFilled(int x, int y, int width, int height, float xPivot, float yPivot, Color color)
+void EasySDL2::drawRectFilled(int x, int y, int width, int height, int xPivot, int yPivot, Color color)
 {
 	SDL_Rect dest = { x - xPivot, y - yPivot,width ,height };
 	SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
@@ -362,22 +364,23 @@ void EasySDL2::drawCircleFilled(int x, int y, int radius, Color color)
 	_drawCircleFilled(renderer, x, y, radius);
 }
 
-void EasySDL2::drawTexture(int x, int y, int width, int height, Texture& texture)
+
+void EasySDL2::drawTexture(Texture& texture, int x, int y, int width, int height)
 {
-	drawTexture(x, y, width, height, .0f, .0f, texture);
+	drawTexture(texture, x, y, width, height, .0f, .0f);
 }
 
-void EasySDL2::drawTexture(int x, int y, int width, int height, int angle, Texture& texture)
+void EasySDL2::drawTexture(Texture& texture, int x, int y, int width, int height, int angle)
 {
-	drawTexture(x, y, width, height, 0, 0, angle, texture);
+	drawTexture(texture, x, y, width, height, 0, 0, angle);
 }
 
-void EasySDL2::drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, Texture& texture)
+void EasySDL2::drawTexture(Texture& texture, int x, int y, int width, int height, int xPivot, int yPivot)
 {
-	drawTexture(x, y, width, height, xPivot, yPivot, 0, texture);
+	drawTexture(texture ,x, y, width, height, xPivot, yPivot, 0);
 }
 
-void EasySDL2::drawTexture(int x, int y, int width, int height, int xPivot, int yPivot, float angle, Texture& texture)
+void EasySDL2::drawTexture(Texture& texture, int x, int y, int width, int height, int xPivot, int yPivot, float angle)
 {
 	SDL_Rect dest = { x,y,width,height };
 	SDL_Point pivot = { xPivot, yPivot };
@@ -402,6 +405,38 @@ Texture EasySDL2::loadTexture(std::string path)
 	Texture texture(SDL_CreateTextureFromSurface(renderer, optimizedImgSurface), false, false);
 	SDL_FreeSurface(optimizedImgSurface);
 	return texture;
+}
+
+
+Font EasySDL2::loadFont(std::string path, int size)
+{
+	TTF_Font* loadedFont = TTF_OpenFont(path.c_str(), size);
+	if (!loadedFont) {
+		printf("TTF_OpenFont: %s\n", TTF_GetError());
+	}
+	Font font(loadedFont);
+	return font;
+}
+void EasySDL2::drawText(Font& font, std::string text, int x, int y) {
+	drawText(font, text, x, y, 0);
+}
+void EasySDL2::drawText(Font& font, std::string text, int x, int y, int angle) {
+	drawText(font, text, x, y, 0.f, 0.5f, angle);
+}
+
+void EasySDL2::drawText(Font& font, std::string text, int x, int y, int xPivot, int yPivot, float angle) {
+
+	SDL_Surface* text_surface;
+	if (!(text_surface = TTF_RenderUTF8_Solid(font.getSharedFont(), text.c_str(), { 0,0,0,0 }))) {
+		printf("TTF_RenderUTF8_Solid: %s\n", TTF_GetError());
+	}
+	else {
+		Texture t(SDL_CreateTextureFromSurface(renderer, text_surface), false, false);
+
+		drawTexture(t, x, y, text_surface->w, text_surface->h, xPivot, yPivot, angle);
+
+		SDL_FreeSurface(text_surface);
+	}
 }
 
 Sound EasySDL2::loadSound(std::string path)
@@ -464,31 +499,6 @@ int EasySDL2::getMusicVolume() {
 	return Mix_VolumeMusic(-1);
 }
 
-Font EasySDL2::loadFont(std::string path, int size)
-{
-	TTF_Font* loadedFont = TTF_OpenFont(path.c_str(), size);
-	if (!loadedFont) {
-		printf("TTF_OpenFont: %s\n", TTF_GetError());
-	}
-	Font font(loadedFont);
-	return font;
-}
-
-void EasySDL2::drawText(Font& font, std::string text, int x, int y) {
-
-	SDL_Surface* text_surface;
-	if (!(text_surface = TTF_RenderUTF8_Solid(font.getSharedFont(), text.c_str(), {0,0,0,0}))) {
-		printf("TTF_RenderUTF8_Solid: %s\n", TTF_GetError());
-	}
-	else {
-		SDL_Rect pos = { x,y,text_surface->w,text_surface->h };
-		SDL_Texture* mTexture = SDL_CreateTextureFromSurface(renderer, text_surface);
-		SDL_RenderCopy(renderer, mTexture, NULL, &pos);
-		
-		SDL_FreeSurface(text_surface);
-		SDL_DestroyTexture(mTexture);
-	}
-}
 
 void EasySDL2::drawFrame()
 {
