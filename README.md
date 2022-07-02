@@ -23,7 +23,7 @@ int main(int argc, char* argv[]) {
 
 	EasySDL2 sdl(500, 500);                 //initialization
 	Texture t = sdl.loadTexture("h.jpg");   //load texture
-	sdl.drawTexture(0, 0, 500, 500, t); 
+	sdl.drawTexture(t, 0, 0, 500, 500); 
 	sdl.drawFrame();                        //show next frame
 	sdl.waitUntil("Q");                     //show same frame until Q is pressed
 	return 0;
