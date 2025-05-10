@@ -176,7 +176,7 @@ public:
 	~EasySDL2() {
 		SDL_DestroyWindow(window);
 		SDL_DestroyRenderer(renderer);
-		SDL_FreeSurface(surface);
+		//SDL_FreeSurface(surface); // "Do not free this surface" https://wiki.libsdl.org/SDL3/SDL_GetWindowSurface
 		Mix_Quit();
 		IMG_Quit();
 		TTF_Quit();
